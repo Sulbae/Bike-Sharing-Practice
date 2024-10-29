@@ -134,9 +134,7 @@ st.subheader("Most Popular Season for Cycling")
 
 season_fig, ax = plt.subplots(figsize=(10, 5))
 
-max_value = seasonal_df["total_users"].max() 
-
-colors = ["#4682B4" if value == max_value else "grey" for value in seasonal_df["total_users"]]
+colors = ["#4682B4", "grey", "grey", "grey"]
 
 sns.barplot(
     x="total_users", 
