@@ -62,11 +62,15 @@ st.header("Bike Sharing Dashboard :sparkles:")
 
 st.subheader("Monthly Trend")
 
-col1 = st.columns(1)
+col1, col2 = st.columns(2)
 
 with col1:
-    total_users = monthly_trend_df.total_users.sum()
-    st.metric("Total Users", value=total_users)
+    casual_users = monthly_trend_df.casual.sum()
+    st.metric("Casual Users", value=casual_users)
+
+with col2:
+    registered_users = monthly_trend_df.registered.sum()
+    st.metric("Registered Users", value=registered_users)
 
 trend_fig, ax = plt.subplots(figsize=(10, 5))
 
