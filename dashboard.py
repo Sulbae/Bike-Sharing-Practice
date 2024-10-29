@@ -33,6 +33,8 @@ def create_peak_hour_df(df):
 all_df = pd.read_csv("all_data.csv")
 
 ## Filter 
+all_df["date"] = pd.to_datetime(all_df["date"])
+
 min_date = all_df["date"].min()
 max_date = all_df["date"].max()
 
