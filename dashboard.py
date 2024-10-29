@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
 from babel.numbers import format_currency
-sns.set(style='dark')
+sns.set_theme(style='dark')
 
 ## create_monthly_trend_df
 def create_monthly_trend_df(df):
@@ -20,109 +20,174 @@ def create_seasonal_df(df):
     seasonal_df = df.groupby(by=["month", "season"]).agg({"total_users":"sum"}).sort_index()
     return seasonal_df 
 
+## create_peak_hour_df
+def create_peak_hour_df(df):
+    peak_hour = df.groupby(by="hour_interval").agg({"total_users":"sum"}).sort_index()
+    
+    peak_hour = peak_hour.reset_index()
+    
+    peak_hour_sorted = peak_hour.sort_values(by="total_users", ascending=False)
+
+    return peak_hour_sorted
+
 all_df = pd.read_csv("all_data.csv")
 
-## Mengurutkan Dataframe berdasarkan tanggal pesanan
-datetime_columns = ["transaction_timestamp", 
-                    "order_approved_at", 
-                    "order_delivered_carrier_date", 
-                    "order_delivered_customer_date",
-                    "order_estimated_delivery_date",
-                    "shipping_limit_date"
-                ]
-all_df.sort_values(by="transaction_timestamp", inplace=True)
-all_df.reset_index(inplace=True)
-
-for column in datetime_columns:
-    all_df[column] = pd.to_datetime(all_df[column])
-
-## Membuat komponen filter
-min_date = all_df["transaction_timestamp"].min()
-max_date = all_df["transaction_timestamp"].max()
+## Filter 
+min_date = all_df["date"].min()
+max_date = all_df["date"].max()
 
 with st.sidebar:
-    ### Menambahkan logo
+    ### Add Logo
     st.image("https://github.com/dicodingacademy/assets/raw/main/logo.png")
 
-    ### Mengambil start_date dan end_date dari date_input
+    ### Take start_date and end_date from date_input
     start_date, end_date = st.date_input(
-        label="Rentang Waktu",
+        label="Date Range",
         min_value=min_date,
         max_value=max_date,
         value=[min_date, max_date]
     )
 
-## Menyimpan data terfilter
-main_df = all_df[(all_df["transaction_timestamp"] >= str(start_date)) &
-                 (all_df["transaction_timestamp"] <= str(end_date))]
+## Store filtered data
+main_df = all_df[(all_df["date"] >= str(start_date)) &
+                 (all_df["date"] <= str(end_date))]
 
-## Memanggil helper function
-monthly_orders_df = create_monthly_orders_df(main_df)
-sum_order_items = create_sum_order_items_df(main_df)
+## Use helper function
+monthly_trend_df = create_monthly_trend_df(main_df)
+seasonal_df = create_seasonal_df(main_df)
+peak_hour_df = create_peak_hour_df(main_df)
 
-## Melengkapi Dashboard
-# Visualisasi Pertanyaan 1
-st.header("Dashboard Proyek Analisis Data :sparkles:")
+# Question 1 
+st.header("Bike Sharing Dashboard :sparkles:")
 
-st.subheader("Monthly Orders")
+st.subheader("Monthly Trend")
 
-col1, col2 = st.columns(2)
+col1 = st.columns(1)
 
 with col1:
-    total_orders = monthly_orders_df.order_count.sum()
-    st.metric("Total Orders", value=total_orders)
+    total_users = monthly_trend_df.total_users.sum()
+    st.metric("Total Users", value=total_users)
 
-with col2:
-    total_revenue = format_currency(monthly_orders_df.revenue.sum(), "AUD", locale='es_CO') 
-    st.metric("Total Revenue", value=total_revenue)
+trend_fig, ax = plt.subplots(figsize=(10, 5))
 
-fig, ax = plt.subplots(figsize=(16, 8))
 ax.plot(
-    monthly_orders_df["transaction_timestamp"],
-    monthly_orders_df["order_count"],
-    marker='o', 
+    monthly_trend_df["date"], 
+    monthly_trend_df["total_users"], 
+    marker="o",
+    linestyle="-",
     linewidth=2,
-    color="#90CAF9"
+    color="#4682B4" 
 )
-ax.tick_params(axis='y', labelsize=20)
-ax.tick_params(axis='x', labelsize=15)
 
-st.pyplot(fig)
+max_index = monthly_trend_df["total_users"].idxmax()
+ax.scatter(monthly_trend_df["date"].iloc[max_index], monthly_trend_df["total_users"].iloc[max_index],
+            color="green",
+            s=100,
+            edgecolors="green",
+            zorder=5,
+            label="Peak")
 
-# Visualisasi Pertanyaan 2
-st.subheader("Best & Worst Performing Product")
+ax.axhline(monthly_trend_df["total_users"].mean(), 
+            color="red", 
+            linestyle="--",
+            linewidth=1,
+            label="Average",
+)
 
-fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(35, 15))
- 
-colors = ["#90CAF9", "#D3D3D3", "#D3D3D3", "#D3D3D3", "#D3D3D3"]
- 
+ax.axvline(monthly_trend_df["date"].iloc[max_index], 
+            color="grey", 
+            linestyle=":",
+            linewidth=1)
+
+ax.set_title(
+    "Monthly Trend of Total Users in 2011 - 2012", 
+    loc="center",
+    pad=10,
+    fontsize=20,
+    fontweight="bold"
+)
+
+ax.tick_params(axis="x", rotation=45, labelsize=10)
+ax.tick_params(axis="y", labelsize=10)
+
+yticks = ax.get_yticks()
+ax.set_yticks(yticks)
+ax.set_yticklabels([f"{int(x/1000)}K" for x in yticks])
+
+ax.set_ylabel("Number of Users")
+
+ax.grid(axis="y", which="both", linestyle="--", alpha=0.5)
+ax.legend(loc="upper left")
+
+st.pyplot(trend_fig)
+
+# Question 2 
+st.subheader("Most Popular Season for Cycling")
+
+season_fig, ax = plt.subplots(figsize=(10, 5))
+
+max_value = seasonal_df["total_users"].max() 
+
+colors = ["#4682B4" if value == max_value else "grey" for value in seasonal_df["total_users"]]
+
 sns.barplot(
-    x="count_order_id", 
-    y="product_category_name", 
-    data=sum_order_items.head(5), 
-    palette=colors, 
-    ax=ax[0]
+    x="total_users", 
+    y="season", 
+    data=seasonal_df,
+    order=seasonal_df["season"],
+    palette=colors
 )
-ax[0].set_ylabel(None)
-ax[0].set_xlabel("Number of Sales", fontsize=30)
-ax[0].set_title("Best Performing Product", loc="center", fontsize=50)
-ax[0].tick_params(axis='y', labelsize=35)
-ax[0].tick_params(axis='x', labelsize=30)
- 
-sns.barplot(
-    x="count_order_id", 
-    y="product_category_name", 
-    data=sum_order_items.sort_values(by="count_order_id", ascending=True).head(5), 
-    palette=colors, 
-    ax=ax[1]
+
+xticks = ax.get_xticks()
+ax.set_xticks(xticks)
+ax.set_xticklabels([f"{int(x/1000)}K" for x in xticks])
+
+plt.title("Most Popular Season for Cycling", 
+          loc="center", 
+          fontsize=15,
+          fontweight="bold",
+          pad=10
 )
-ax[1].set_ylabel(None)
-ax[1].set_xlabel("Number of Sales", fontsize=30)
-ax[1].invert_xaxis()
-ax[1].yaxis.set_label_position("right")
-ax[1].yaxis.tick_right()
-ax[1].set_title("Worst Performing Product", loc="center", fontsize=50)
-ax[1].tick_params(axis='y', labelsize=35)
-ax[1].tick_params(axis='x', labelsize=30)
+
+plt.ylabel(None)
+plt.xlabel("Number of Users")
  
-st.pyplot(fig)
+st.pyplot(season_fig)
+
+# Question 3
+st.subheader("Peak Hour")
+
+peak_hour_fig, ax = plt.subplots(nrows=1, figsize=(10, 5))
+
+mean_users = peak_hour_df["total_users"].mean()
+
+colors_hour = ["#4682B4" if value > mean_users else "grey" for value in peak_hour_df["total_users"]]
+
+for i, (hour_interval, total_users) in enumerate(zip(peak_hour_df["hour_interval"], peak_hour_df["total_users"])):
+    ax.bar(hour_interval, total_users, color=colors_hour[i], width=0.95)
+
+ax.axhline(mean_users, 
+            color="red", 
+            linestyle="--",
+            linewidth=1,
+            label="Average",
+)
+
+yticks = ax.get_yticks()
+ax.set_yticks(yticks)
+ax.set_yticklabels([f"{int(x/1000)}K" for x in yticks])
+
+ax.set_title("Peak Hour", 
+          loc="center", 
+          fontsize=15,
+          fontweight="bold",
+          pad=10
+)
+
+ax.tick_params(axis="x", rotation=45)
+ax.set_xlabel("Hour Interval")
+ax.set_ylabel("Number of Users")
+
+ax.legend(loc="upper left")
+
+st.pyplot(peak_hour_fig)
