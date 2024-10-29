@@ -9,15 +9,19 @@ sns.set_theme(style='dark')
 ## create_monthly_trend_df
 def create_monthly_trend_df(df):
     monthly_trend_df = df.groupby(pd.Grouper(key="date", freq="M")).agg({"total_users":"sum"}).sort_index()
-    monthly_trend.index = monthly_trend.index.strftime("%b %Y")
+    monthly_trend_df.index = monthly_trend_df.index.strftime("%b %Y")
 
-    monthly_trend = monthly_trend.reset_index()
+    monthly_trend_df = monthly_trend_df.reset_index()
 
     return monthly_trend_df
 
 ## create_seasonal_df
 def create_seasonal_df(df):
     seasonal_df = df.groupby(by=["month", "season"]).agg({"total_users":"sum"}).sort_index()
+    
+    seasonal_df = seasonal_df.reset_index()
+    seasonal_df = seasonal_df.sort_values(by="total_users", ascending=False)
+
     return seasonal_df 
 
 ## create_peak_hour_df
@@ -25,10 +29,8 @@ def create_peak_hour_df(df):
     peak_hour = df.groupby(by="hour_interval").agg({"total_users":"sum"}).sort_index()
     
     peak_hour = peak_hour.reset_index()
-    
-    peak_hour_sorted = peak_hour.sort_values(by="total_users", ascending=False)
 
-    return peak_hour_sorted
+    return peak_hour
 
 all_df = pd.read_csv("all_data.csv")
 
@@ -67,11 +69,11 @@ st.subheader("Monthly Trend")
 col1, col2 = st.columns(2)
 
 with col1:
-    casual_users = monthly_trend_df.casual.sum()
+    casual_users = all_df.casual.sum()
     st.metric("Casual Users", value=casual_users)
 
 with col2:
-    registered_users = monthly_trend_df.registered.sum()
+    registered_users = all_df.registered.sum()
     st.metric("Registered Users", value=registered_users)
 
 trend_fig, ax = plt.subplots(figsize=(10, 5))
