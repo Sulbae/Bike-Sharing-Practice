@@ -6,24 +6,19 @@ import streamlit as st
 from babel.numbers import format_currency
 sns.set(style='dark')
 
-## create_monthly_orders_df
-def create_monthly_orders_df(df):
-    monthly_orders_df = df.resample(rule="M", on="transaction_timestamp").agg({
-        "order_id": "nunique",
-        "price": "sum"
-    })
-    monthly_orders_df = monthly_orders_df.reset_index()
-    monthly_orders_df.rename(columns={
-        "order_id": "order_count",
-        "price": "revenue"
-    }, inplace=True)
+## create_monthly_trend_df
+def create_monthly_trend_df(df):
+    monthly_trend_df = df.groupby(pd.Grouper(key="date", freq="M")).agg({"total_users":"sum"}).sort_index()
+    monthly_trend.index = monthly_trend.index.strftime("%b %Y")
 
-    return monthly_orders_df
+    monthly_trend = monthly_trend.reset_index()
 
-## create_sum_order_items_df
-def create_sum_order_items_df(df):
-    sum_order_items_df = df.groupby("product_category_name").count_order_id.sum().sort_values(ascending=False).reset_index()
-    return sum_order_items_df 
+    return monthly_trend_df
+
+## create_seasonal_df
+def create_seasonal_df(df):
+    seasonal_df = df.groupby(by=["month", "season"]).agg({"total_users":"sum"}).sort_index()
+    return seasonal_df 
 
 all_df = pd.read_csv("all_data.csv")
 
